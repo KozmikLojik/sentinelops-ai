@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SentinelOps AI</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: #0f1419;
+      color: #e6edf3;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 1.5rem 0;
+      color: #58a6ff;
+    }
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      background: #21262d;
+      color: #e6edf3;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: hidden;
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem 0;
+      color: #8b949e;
+    }
+    .card pre, .card code {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .card pre {
+      background: #0d1117;
+      padding: 0.75rem;
+      border-radius: 4px;
+      max-height: 12rem;
+      overflow-y: auto;
+    }
+    .decision-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .decision-badge.STOP { background: #f85149; color: #0d1117; }
+    .decision-badge.MOVE { background: #3fb950; color: #0d1117; }
+    .decision-badge.IDLE { background: #8b949e; color: #0d1117; }
+    .event-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 14rem;
+      overflow-y: auto;
+    }
+    .event-list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #21262d;
+      font-size: 0.8rem;
+    }
+    .event-list li:last-child { border-bottom: none; }
+    .event-type { color: #58a6ff; font-weight: 500; }
+    .error { color: #f85149; }
+  </style>
+</head>
+<body>
+  <h1>SentinelOps AI</h1>
+
+  <div class="controls">
+    <button type="button" id="refresh">Refresh State</button>
+    <button type="button" id="simulate">Simulate Step</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Robot State</h2>
+      <pre id="state">—</pre>
+    </div>
+    <div class="card">
+      <h2>Latest AI Decision</h2>
+      <div id="decision">—</div>
+    </div>
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2>Event Logs</h2>
+      <ul class="event-list" id="events">—</ul>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8000';
+
+    async function fetchState() {
+      const res = await fetch(API_BASE + '/robot/state');
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    }
+
+    async function fetchDecisions() {
+      const res = await fetch(API_BASE + '/logs/decisions');
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    }
+
+    async function fetchEvents() {
+      const res = await fetch(API_BASE + '/logs/events');
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    }
+
+    async function simulateStep() {
+      const res = await fetch(API_BASE + '/simulate/step', { method: 'POST' });
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    }
+
+    function renderState(data) {
+      document.getElementById('state').textContent = JSON.stringify(data, null, 2);
+    }
+
+    function renderDecision(decision) {
+      const el = document.getElementById('decision');
+      if (!decision) {
+        el.textContent = '—';
+        return;
+      }
+      const badge = decision.action ? `<span class="decision-badge ${decision.action}">${decision.action}</span>` : '';
+      el.innerHTML = badge + (decision.reason ? `<p style="margin: 0.5rem 0 0 0;">${decision.reason}</p>` : '') +
+        (decision.confidence != null ? `<p style="margin: 0.25rem 0 0 0; font-size: 0.8rem; color: #8b949e;">confidence: ${decision.confidence}</p>` : '');
+    }
+
+    function renderEvents(events) {
+      const el = document.getElementById('events');
+      if (!Array.isArray(events) || events.length === 0) {
+        el.innerHTML = '<li>—</li>';
+        return;
+      }
+      el.innerHTML = events.slice().reverse().map(e => {
+        const type = e.event_type || e.type || '—';
+        const ts = e.timestamp || '';
+        const details = e.details ? JSON.stringify(e.details) : '';
+        return `<li><span class="event-type">${type}</span> ${ts} ${details ? '— ' + details : ''}</li>`;
+      }).join('');
+    }
+
+    async function refreshState() {
+      const btn = document.getElementById('refresh');
+      btn.disabled = true;
+      try {
+        const [state, decisions] = await Promise.all([fetchState(), fetchDecisions()]);
+        renderState(state);
+        const latest = decisions && decisions.length ? decisions[decisions.length - 1] : null;
+        renderDecision(latest);
+        const events = await fetchEvents();
+        renderEvents(events);
+      } catch (err) {
+        document.getElementById('state').textContent = 'Error: ' + err.message;
+      }
+      btn.disabled = false;
+    }
+
+    async function runSimulate() {
+      const btn = document.getElementById('simulate');
+      btn.disabled = true;
+      try {
+        const data = await simulateStep();
+        renderState(data.state);
+        renderDecision(data.decision);
+        const events = await fetchEvents();
+        renderEvents(events);
+      } catch (err) {
+        document.getElementById('state').textContent = 'Error: ' + err.message;
+      }
+      btn.disabled = false;
+    }
+
+    document.getElementById('refresh').addEventListener('click', refreshState);
+    document.getElementById('simulate').addEventListener('click', runSimulate);
+
+    refreshState();
+  </script>
+</body>
+</html>

@@ -1,12 +1,21 @@
 from datetime import datetime
 
 from fastapi import Body, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from .logger import get_decision_logs, get_event_logs, log_event
+from .logger import get_decision_logs, get_event_logs, log_decision, log_event
+from ai_agent.decision_engine import decide_next_action
 from simulation.robot_simulator import simulate_step
 from .state_manager import get_state, reset_state, update_state
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -37,7 +46,11 @@ def simulate_step_endpoint():
     update_state(updated_state)
     if event is not None:
         log_event(event)
-    return {"state": updated_state, "event": event}
+    decision = decide_next_action(updated_state, event)
+    log_decision(decision)
+    if decision.get("action") == "STOP":
+        update_state({"status": "STOPPED"})
+    return {"state": get_state(), "event": event, "decision": decision}
 
 
 @app.get("/logs/decisions")
