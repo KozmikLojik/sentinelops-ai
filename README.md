@@ -73,3 +73,16 @@ AI: Rule-based decision engine
 Frontend: HTML + JavaScript
 
 Deployment: Vultr VM
+---
+
+## 📸 Screenshots
+
+### Dashboard (Initial State)
+![Dashboard Initial](docs/dashboard_initial.png)
+
+### Dashboard (Simulation Running)
+![Dashboard Simulation](docs/dashboard_simulation.png)
+
+### Backend API (Swagger)
+![API Swagger](docs/api_swagger.png)
+
