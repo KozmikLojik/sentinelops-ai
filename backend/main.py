@@ -10,12 +10,23 @@ from .state_manager import get_state, reset_state, update_state
 
 app = FastAPI()
 
+# Allow frontend access (local + deployed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "https://sentinelops-ai.onrender.com",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# 🔥 Root route (required for Render sanity check)
+@app.get("/")
+def root():
+    return {"message": "SentinelOps AI backend is live"}
 
 
 @app.get("/health")
@@ -44,13 +55,21 @@ def simulate_step_endpoint():
     state = get_state()
     updated_state, event = simulate_step(state)
     update_state(updated_state)
+
     if event is not None:
         log_event(event)
+
     decision = decide_next_action(updated_state, event)
     log_decision(decision)
+
     if decision.get("action") == "STOP":
         update_state({"status": "STOPPED"})
-    return {"state": get_state(), "event": event, "decision": decision}
+
+    return {
+        "state": get_state(),
+        "event": event,
+        "decision": decision,
+    }
 
 
 @app.get("/logs/decisions")
