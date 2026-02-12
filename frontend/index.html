@@ -1,224 +1,450 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SentinelOps AI</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SentinelOps • AI Command</title>
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      --bg: #05080f;
+      --card: #0f172a;
+      --border: #1e2937;
+      --accent: #00f0ff;
+      --accent-dark: #00b8c2;
+      --text: #e0f2fe;
+      --text-muted: #94a3b8;
+      --success: #22ffaa;
+      --danger: #ff4d6d;
+      --radius: 16px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      margin: 0;
-      padding: 1.5rem;
-      background: #0f1419;
-      color: #e6edf3;
-      line-height: 1.5;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      background-image: 
+        linear-gradient(rgba(0,240,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,240,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
     }
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin: 0 0 1.5rem 0;
-      color: #58a6ff;
-    }
-    .controls {
+
+    .container { max-width: 1480px; margin: 0 auto; padding: 1.5rem; }
+
+    header {
       display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0 2rem;
+      border-bottom: 1px solid var(--border);
     }
-    button {
-      font-size: 0.9rem;
-      padding: 0.5rem 1rem;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      background: #21262d;
-      color: #e6edf3;
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .logo-dot {
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 20px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+    .status { display: flex; align-items: center; gap: 8px; color: var(--success); font-size: 0.95rem; }
+
+    .controls button {
+      padding: 0.75rem 1.5rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      border: none;
       cursor: pointer;
+      transition: var(--transition);
     }
-    button:hover {
-      background: #30363d;
-      border-color: #8b949e;
+
+    button#refresh { background: #1e2937; color: white; }
+    button#simulate { background: linear-gradient(90deg, var(--accent), #00b8c2); color: #05080f; font-weight: 700; }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.25);
     }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
     }
+
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .metric-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 1.75rem; font-weight: 700; margin-top: 4px; }
+
     .grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
+      grid-template-columns: 380px 1fr 380px;
+      gap: 1.5rem;
     }
-    @media (max-width: 768px) {
-      .grid { grid-template-columns: 1fr; }
+
+    @media (max-width: 1280px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+      .viz-card { grid-column: 1 / -1; }
     }
+
     .card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      padding: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      transition: var(--transition);
     }
-    .card h2 {
-      font-size: 0.95rem;
+
+    .card:hover { transform: translateY(-4px); }
+
+    .card-header {
+      padding: 1.25rem 1.5rem;
+      background: rgba(15,23,42,0.6);
+      border-bottom: 1px solid var(--border);
       font-weight: 600;
-      margin: 0 0 0.75rem 0;
-      color: #8b949e;
+      color: var(--accent);
     }
-    .card pre, .card code {
-      font-family: 'Consolas', 'Monaco', monospace;
-      font-size: 0.8rem;
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-all;
+
+    /* Robot */
+    .robot-viz { height: 380px; display: flex; align-items: center; justify-content: center; }
+    .robot {
+      width: 180px;
+      height: 220px;
+      position: relative;
     }
-    .card pre {
-      background: #0d1117;
-      padding: 0.75rem;
-      border-radius: 4px;
-      max-height: 12rem;
-      overflow-y: auto;
+    .robot-head, .robot-body { border: 4px solid var(--accent); }
+    .robot-head {
+      width: 110px; height: 90px; background: #1e2937;
+      border-radius: 20px 20px 8px 8px;
+      position: absolute; left: 50%; transform: translateX(-50%);
+      box-shadow: 0 0 30px rgba(0,240,255,0.4);
     }
+    .robot-eyes {
+      position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 18px;
+    }
+    .eye {
+      width: 22px; height: 28px; background: #00f0ff;
+      border-radius: 50%; box-shadow: 0 0 15px #00f0ff;
+      animation: eye-blink 4s infinite;
+    }
+    @keyframes eye-blink { 0%,90%,100% { height:28px; } 92% { height:4px; } }
+
+    .robot-body {
+      width: 140px; height: 110px; background: linear-gradient(#1e2937, #0f172a);
+      border-radius: 12px;
+      position: absolute; top: 78px; left: 50%; transform: translateX(-50%);
+    }
+
+    .wheel {
+      width: 48px; height: 48px; background: #1e2937;
+      border: 6px solid #64748b; border-radius: 50%;
+      position: absolute; bottom: -24px;
+    }
+    .wheel.left { left: 20px; }
+    .wheel.right { right: 20px; }
+
+    .robot.moving .wheel { animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Decision */
+    .confidence-ring {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: conic-gradient(var(--accent) 0% var(--progress), #1e2937 var(--progress) 100%);
+      margin: 1rem auto; position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .confidence-ring::after {
+      content:''; width:78px; height:78px; background:var(--card); border-radius:50%;
+    }
+    .confidence-value {
+      position: absolute; font-size: 1.8rem; font-weight: 700; color: var(--accent);
+    }
+
     .decision-badge {
       display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-weight: 600;
-      font-size: 0.85rem;
+      padding: 0.75rem 2rem;
+      border-radius: 9999px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
-    .decision-badge.STOP { background: #f85149; color: #0d1117; }
-    .decision-badge.MOVE { background: #3fb950; color: #0d1117; }
-    .decision-badge.IDLE { background: #8b949e; color: #0d1117; }
-    .event-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      max-height: 14rem;
+    .decision-badge.MOVE { background: var(--success); color: #000; }
+    .decision-badge.STOP { background: var(--danger); color: white; }
+    .decision-badge.IDLE { background: #475569; color: white; }
+
+    .timeline {
+      padding: 1.5rem;
+      max-height: 420px;
       overflow-y: auto;
     }
-    .event-list li {
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #21262d;
-      font-size: 0.8rem;
+
+    .timeline-item {
+      display: flex; gap: 1rem; padding-bottom: 1.25rem;
+      border-left: 2px solid var(--border); margin-left: 10px;
+      position: relative;
     }
-    .event-list li:last-child { border-bottom: none; }
-    .event-type { color: #58a6ff; font-weight: 500; }
-    .error { color: #f85149; }
+    .timeline-item:last-child { border-left: none; padding-bottom: 0; }
+    .timeline-dot {
+      width: 18px; height: 18px; background: var(--card);
+      border: 3px solid var(--accent); border-radius: 50%;
+      position: absolute; left: -10px;
+    }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      padding: 1rem 1.5rem; border-radius: 12px;
+      background: #1e2937; border: 1px solid var(--accent);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: none; z-index: 1000;
+    }
   </style>
 </head>
 <body>
-  <h1>SentinelOps AI</h1>
 
-  <div class="controls">
-    <button type="button" id="refresh">Refresh State</button>
-    <button type="button" id="simulate">Simulate Step</button>
+<div class="container">
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      SentinelOps
+    </div>
+    <div class="status"><span>●</span> LIVE • Edge Cluster</div>
+    <div class="controls">
+      <button id="refresh">↻ Refresh State</button>
+      <button id="simulate">▶ Simulate Next Step</button>
+    </div>
+  </header>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Current Action</div>
+      <div class="metric-value" id="current-action">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Confidence</div>
+      <div class="metric-value" id="avg-confidence">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Battery</div>
+      <div class="metric-value" id="battery-level">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Last Updated</div>
+      <div class="metric-value" id="last-updated">Just now</div>
+    </div>
   </div>
 
   <div class="grid">
-    <div class="card">
-      <h2>Robot State</h2>
-      <pre id="state">—</pre>
+    <!-- Robot Visualization -->
+    <div class="card viz-card">
+      <div class="card-header">Robot Visualization</div>
+      <div class="robot-viz">
+        <div class="robot" id="robot">
+          <div class="robot-head">
+            <div class="robot-eyes">
+              <div class="eye"></div>
+              <div class="eye"></div>
+            </div>
+          </div>
+          <div class="robot-body"></div>
+          <div class="wheel left"></div>
+          <div class="wheel right"></div>
+        </div>
+      </div>
     </div>
+
+    <!-- Robot State -->
     <div class="card">
-      <h2>Latest AI Decision</h2>
-      <div id="decision">—</div>
+      <div class="card-header">Robot State</div>
+      <div style="padding:1.5rem;">
+        <pre id="state" style="font-size:0.82rem; background:#0a0f1f; padding:1.25rem; border-radius:12px; max-height:380px; overflow:auto;">Loading...</pre>
+      </div>
     </div>
-    <div class="card" style="grid-column: 1 / -1;">
-      <h2>Event Logs</h2>
-      <ul class="event-list" id="events">—</ul>
+
+    <!-- Latest AI Decision -->
+    <div class="card">
+      <div class="card-header">Latest AI Decision</div>
+      <div style="padding:2rem 1.5rem; text-align:center;">
+        <div id="decision-badge" class="decision-badge" style="margin-bottom:1.5rem;"></div>
+        
+        <div class="confidence-ring" id="confidence-ring">
+          <div class="confidence-value" id="confidence-value">0%</div>
+        </div>
+
+        <div id="decision-reason" style="margin-top:1.5rem; min-height:80px; color:var(--text-muted); font-size:0.95rem; line-height:1.5;"></div>
+      </div>
     </div>
   </div>
 
-  <script>
-    const API_BASE = 'http://127.0.0.1:8000';
+  <!-- Event Timeline -->
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-header">Event Timeline</div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+</div>
 
-    async function fetchState() {
-      const res = await fetch(API_BASE + '/robot/state');
-      if (!res.ok) throw new Error(res.statusText);
-      return res.json();
+<div class="toast" id="toast"><span id="toast-text"></span></div>
+
+<script>
+  const API_BASE = 'https://sentinelops-ai.onrender.com';
+  const $ = id => document.getElementById(id);
+
+  function showToast(msg, error = false) {
+    const t = $('toast');
+    t.style.borderColor = error ? '#ff4d6d' : 'var(--accent)';
+    $('toast-text').textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3000);
+  }
+
+  async function apiGet(endpoint) {
+    const res = await fetch(API_BASE + endpoint);
+    if (!res.ok) throw new Error(res.status);
+    return res.json();
+  }
+
+  async function apiPost(endpoint) {
+    const res = await fetch(API_BASE + endpoint, { method: 'POST' });
+    if (!res.ok) throw new Error(res.status);
+    return res.json();
+  }
+
+  function updateRobot(action) {
+    const robot = $('robot');
+    robot.classList.toggle('moving', action === 'MOVE');
+  }
+
+  function renderDecision(dec) {
+    if (!dec) return;
+
+    const badge = $('decision-badge');
+    badge.textContent = dec.action || 'IDLE';
+    badge.className = `decision-badge ${dec.action || 'IDLE'}`;
+
+    $('decision-reason').textContent = dec.reason || 'No active task';
+
+    const conf = Math.round((dec.confidence || 0) * 100);
+    $('confidence-value').textContent = conf + '%';
+    $('confidence-ring').style.setProperty('--progress', conf + '%');
+
+    $('current-action').textContent = dec.action || 'IDLE';
+    $('current-action').style.color = dec.action === 'MOVE' ? 'var(--success)' : 
+                                      dec.action === 'STOP' ? 'var(--danger)' : '#94a3b8';
+
+    $('avg-confidence').textContent = conf + '%';
+    updateRobot(dec.action);
+  }
+
+  function renderState(state) {
+    $('state').textContent = JSON.stringify(state, null, 2);
+
+    // Practical metrics
+    if (state.battery_level !== undefined) {
+      $('battery-level').textContent = state.battery_level + '%';
+      $('battery-level').style.color = state.battery_level < 30 ? 'var(--danger)' : 'var(--success)';
+    }
+    if (state.last_updated) {
+      const time = new Date(state.last_updated).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      $('last-updated').textContent = time;
+    }
+  }
+
+  function renderTimeline(events) {
+    const container = $('timeline');
+    if (!events || events.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted);">No events yet</div>';
+      return;
     }
 
-    async function fetchDecisions() {
-      const res = await fetch(API_BASE + '/logs/decisions');
-      if (!res.ok) throw new Error(res.statusText);
-      return res.json();
+    container.innerHTML = events.slice().reverse().map(e => {
+      const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+      const type = (e.event_type || e.type || 'INFO').toUpperCase();
+      return `
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between">
+              <strong style="color:var(--accent)">${type}</strong>
+              <span style="color:var(--text-muted);font-size:0.85rem;">${time}</span>
+            </div>
+            ${e.details ? `<div style="margin-top:6px;font-size:0.9rem;color:#cbd5e1;">${JSON.stringify(e.details)}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function refresh(silent = false) {
+    if (!silent) $('refresh').disabled = true;
+
+    try {
+      const [state, decisions, events] = await Promise.all([
+        apiGet('/robot/state'),
+        apiGet('/logs/decisions'),
+        apiGet('/logs/events')
+      ]);
+
+      renderState(state);
+      const latest = decisions?.length ? decisions[decisions.length-1] : null;
+      renderDecision(latest);
+      renderTimeline(events);
+
+      showToast('Dashboard updated');
+    } catch (err) {
+      showToast('Connection error: ' + err.message, true);
     }
 
-    async function fetchEvents() {
-      const res = await fetch(API_BASE + '/logs/events');
-      if (!res.ok) throw new Error(res.statusText);
-      return res.json();
+    if (!silent) $('refresh').disabled = false;
+  }
+
+  async function simulateStep() {
+    const btn = $('simulate');
+    btn.disabled = true;
+    btn.textContent = 'Simulating...';
+
+    try {
+      const data = await apiPost('/simulate/step');
+      renderState(data.state);
+      renderDecision(data.decision);
+      const events = await apiGet('/logs/events');
+      renderTimeline(events);
+      showToast('Simulation step completed');
+    } catch (err) {
+      showToast('Simulation failed: ' + err.message, true);
     }
 
-    async function simulateStep() {
-      const res = await fetch(API_BASE + '/simulate/step', { method: 'POST' });
-      if (!res.ok) throw new Error(res.statusText);
-      return res.json();
-    }
+    btn.textContent = '▶ Simulate Next Step';
+    btn.disabled = false;
+  }
 
-    function renderState(data) {
-      document.getElementById('state').textContent = JSON.stringify(data, null, 2);
-    }
+  $('refresh').addEventListener('click', () => refresh());
+  $('simulate').addEventListener('click', simulateStep);
 
-    function renderDecision(decision) {
-      const el = document.getElementById('decision');
-      if (!decision) {
-        el.textContent = '—';
-        return;
-      }
-      const badge = decision.action ? `<span class="decision-badge ${decision.action}">${decision.action}</span>` : '';
-      el.innerHTML = badge + (decision.reason ? `<p style="margin: 0.5rem 0 0 0;">${decision.reason}</p>` : '') +
-        (decision.confidence != null ? `<p style="margin: 0.25rem 0 0 0; font-size: 0.8rem; color: #8b949e;">confidence: ${decision.confidence}</p>` : '');
-    }
-
-    function renderEvents(events) {
-      const el = document.getElementById('events');
-      if (!Array.isArray(events) || events.length === 0) {
-        el.innerHTML = '<li>—</li>';
-        return;
-      }
-      el.innerHTML = events.slice().reverse().map(e => {
-        const type = e.event_type || e.type || '—';
-        const ts = e.timestamp || '';
-        const details = e.details ? JSON.stringify(e.details) : '';
-        return `<li><span class="event-type">${type}</span> ${ts} ${details ? '— ' + details : ''}</li>`;
-      }).join('');
-    }
-
-    async function refreshState() {
-      const btn = document.getElementById('refresh');
-      btn.disabled = true;
-      try {
-        const [state, decisions] = await Promise.all([fetchState(), fetchDecisions()]);
-        renderState(state);
-        const latest = decisions && decisions.length ? decisions[decisions.length - 1] : null;
-        renderDecision(latest);
-        const events = await fetchEvents();
-        renderEvents(events);
-      } catch (err) {
-        document.getElementById('state').textContent = 'Error: ' + err.message;
-      }
-      btn.disabled = false;
-    }
-
-    async function runSimulate() {
-      const btn = document.getElementById('simulate');
-      btn.disabled = true;
-      try {
-        const data = await simulateStep();
-        renderState(data.state);
-        renderDecision(data.decision);
-        const events = await fetchEvents();
-        renderEvents(events);
-      } catch (err) {
-        document.getElementById('state').textContent = 'Error: ' + err.message;
-      }
-      btn.disabled = false;
-    }
-
-    document.getElementById('refresh').addEventListener('click', refreshState);
-    document.getElementById('simulate').addEventListener('click', runSimulate);
-
-    refreshState();
-  </script>
+  // Initial load + auto refresh
+  refresh(true);
+  setInterval(() => refresh(true), 12000);
+</script>
 </body>
 </html>

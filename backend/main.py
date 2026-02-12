@@ -1,82 +1,214 @@
-from datetime import datetime
+"""
+SentinelOps AI – Robotics Simulation Platform Backend
+Enterprise-grade API for real-time robot simulation,
+AI-driven decision making, centralized state management,
+and comprehensive audit logging.
+"""
 
-from fastapi import Body, FastAPI
+# ─────────────────────────────────────────────
+# Imports
+# ─────────────────────────────────────────────
+
+import os
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from .logger import get_decision_logs, get_event_logs, log_decision, log_event
 from ai_agent.decision_engine import decide_next_action
 from simulation.robot_simulator import simulate_step
 from .state_manager import get_state, reset_state, update_state
 
-app = FastAPI()
 
-# Allow frontend access (local + deployed)
+# ─────────────────────────────────────────────
+# Environment Config
+# ─────────────────────────────────────────────
+
+ENV = os.getenv("ENVIRONMENT", "development").lower()
+IS_DEV = ENV == "development"
+
+
+# ─────────────────────────────────────────────
+# FastAPI App Definition
+# ─────────────────────────────────────────────
+
+app = FastAPI(
+    title="SentinelOps AI – Robotics Simulation Platform",
+    description=(
+        "SentinelOps AI is a simulation-first robotics control platform that "
+        "combines real-time state simulation, an autonomous AI decision engine, "
+        "centralized task orchestration, and comprehensive event & decision logging."
+    ),
+    version="1.0.0",
+    contact={
+        "name": "Prit Bhatt",
+        "url": "https://github.com/KozmikLojik",
+    },
+    license_info={
+        "name": "MIT License",
+    },
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+
+# ─────────────────────────────────────────────
+# CORS Configuration
+# ─────────────────────────────────────────────
+
+allowed_origins = (
+    [
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+    ]
+    if IS_DEV
+    else [
+        "https://sentinelops-ai.onrender.com",
+    ]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-        "https://sentinelops-ai.onrender.com",
-    ],
-    allow_methods=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
 
-# 🔥 Root route (required for Render sanity check)
+# ─────────────────────────────────────────────
+# Response Models
+# ─────────────────────────────────────────────
+
+class ApiResponse(BaseModel):
+    status: str
+    message: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+class TaskCreate(BaseModel):
+    task_type: str
+    parameters: Optional[Dict[str, Any]] = None
+
+
+# ─────────────────────────────────────────────
+# System Endpoints
+# ─────────────────────────────────────────────
+
 @app.get("/")
-def root():
-    return {"message": "SentinelOps AI backend is live"}
+async def root():
+    return {
+        "service": "SentinelOps AI",
+        "environment": ENV,
+        "version": app.version,
+    }
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+async def health():
+    return {"status": "healthy"}
 
+
+# ─────────────────────────────────────────────
+# Robot Endpoints
+# ─────────────────────────────────────────────
 
 @app.get("/robot/state")
-def robot_state():
+async def get_robot_state():
     return get_state()
 
 
 @app.post("/robot/task")
-def robot_task(task: dict = Body(...)):
-    update_state({"status": "ACTIVE", "current_task": task.get("task_type")})
-    log_event({
-        "event_type": "TASK_ASSIGNED",
-        "timestamp": datetime.utcnow().isoformat(),
-        "details": {"task_type": task.get("task_type")},
-    })
-    return {"acknowledged": True, "message": "Task received"}
+async def assign_task(payload: TaskCreate = Body(...)):
+    update_state(
+        {
+            "status": "ACTIVE",
+            "current_task": payload.task_type,
+            "task_parameters": payload.parameters,
+        }
+    )
 
+    log_event(
+        {
+            "event_type": "TASK_ASSIGNED",
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {
+                "task_type": payload.task_type,
+                "parameters": payload.parameters,
+            },
+        }
+    )
+
+    return ApiResponse(
+        status="accepted",
+        message=f"Task '{payload.task_type}' assigned",
+    )
+
+
+# ─────────────────────────────────────────────
+# Simulation Endpoint
+# ─────────────────────────────────────────────
 
 @app.post("/simulate/step")
-def simulate_step_endpoint():
-    state = get_state()
-    updated_state, event = simulate_step(state)
-    update_state(updated_state)
+async def simulate_step_endpoint():
+    current_state = get_state()
 
-    if event is not None:
-        log_event(event)
+    try:
+        updated_state, event = simulate_step(current_state)
+        update_state(updated_state)
 
-    decision = decide_next_action(updated_state, event)
-    log_decision(decision)
+        if event:
+            log_event(event)
 
-    if decision.get("action") == "STOP":
-        update_state({"status": "STOPPED"})
+        decision = decide_next_action(updated_state, event)
+        log_decision(decision)
 
-    return {
-        "state": get_state(),
-        "event": event,
-        "decision": decision,
-    }
+        if decision.get("action") == "STOP":
+            update_state({"status": "STOPPED", "current_task": None})
 
+        return {
+            "state": get_state(),
+            "event": event,
+            "decision": decision,
+            "processed_at": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+
+
+# ─────────────────────────────────────────────
+# Logs
+# ─────────────────────────────────────────────
 
 @app.get("/logs/decisions")
-def logs_decisions():
+async def get_decision_history():
     return get_decision_logs()
 
 
 @app.get("/logs/events")
-def logs_events():
+async def get_event_history():
     return get_event_logs()
+
+
+# ─────────────────────────────────────────────
+# Debug (Dev Only)
+# ─────────────────────────────────────────────
+
+@app.post("/debug/reset")
+async def debug_reset():
+    if not IS_DEV:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Disabled in production",
+        )
+
+    reset_state()
+    return ApiResponse(status="success", message="Simulation reset")
